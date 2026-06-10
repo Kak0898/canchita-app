@@ -12,6 +12,7 @@ export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
+  const logoRef = useRef<HTMLInputElement>(null)
 
   const [team, setTeam] = useState<Team & { image_url?: string } | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -25,6 +26,7 @@ export default function TeamDetailPage() {
   const [editingEmoji, setEditingEmoji]   = useState(false)
   const [savingField, setSavingField]     = useState<'name'|'desc'|'emoji'|null>(null)
   const [uploadingImg, setUploadingImg]   = useState(false)
+  const [uploadingLogo, setUploadingLogo]   = useState(false)
 
   // Invite + suggestions
   const [inviteUsername, setInviteUsername] = useState('')
@@ -142,6 +144,23 @@ export default function TeamDetailPage() {
     load()
   }
 
+  // ── Upload team logo (small icon) ─────────────────────────
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+    if (file.size > 2 * 1024 * 1024) { toast.error('Máx 2MB'); return }
+    setUploadingLogo(true)
+    const ext = file.name.split('.').pop()
+    const path = `${id}/logo.${ext}`
+    const { error } = await supabase.storage.from('team-images').upload(path, file, { upsert: true })
+    if (error) { toast.error('Error al subir logo'); setUploadingLogo(false); return }
+    const { data } = supabase.storage.from('team-images').getPublicUrl(path)
+    await supabase.from('teams').update({ logo_url: data.publicUrl + '?t=' + Date.now() }).eq('id', id)
+    setUploadingLogo(false)
+    toast.success('Logo actualizado')
+    load()
+  }
+
   // ── Transfer captaincy ─────────────────────────────────────
   async function handleTransferCaptain(toId: string, toName: string) {
     if (!confirm(`¿Pasar la capitanía a ${toName}?`)) return
@@ -227,40 +246,65 @@ export default function TeamDetailPage() {
         <div className="p-5">
           <div className="flex items-start gap-3">
 
-            {/* Emoji / logo — clickable for captain */}
+            {/* Logo / Emoji — clickable for captain */}
             <div className="shrink-0 relative">
+              {/* The logo button itself */}
               {isCaptain ? (
                 <button
                   onClick={() => setEditingEmoji(!editingEmoji)}
-                  className="text-4xl w-12 h-12 rounded-xl bg-pitch-900 border border-pitch-700 hover:border-pitch-500 flex items-center justify-center transition-colors"
-                  title="Cambiar ícono"
+                  className="w-14 h-14 rounded-xl bg-pitch-900 border border-pitch-700 hover:border-pitch-500 flex items-center justify-center transition-colors overflow-hidden group/logo"
+                  title="Cambiar logo"
                 >
-                  {team.emoji}
+                  {(team as any).logo_url ? (
+                    <img src={(team as any).logo_url} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <span className="text-4xl">{team.emoji}</span>
+                  )}
                 </button>
               ) : (
-                <div className="text-4xl w-12 h-12 rounded-xl bg-pitch-900 border border-pitch-800 flex items-center justify-center">
-                  {team.emoji}
+                <div className="w-14 h-14 rounded-xl bg-pitch-900 border border-pitch-800 flex items-center justify-center overflow-hidden">
+                  {(team as any).logo_url ? (
+                    <img src={(team as any).logo_url} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <span className="text-4xl">{team.emoji}</span>
+                  )}
                 </div>
               )}
 
-              {/* Emoji picker dropdown */}
+              {/* Picker dropdown */}
               {editingEmoji && (
-                <div className="absolute top-14 left-0 z-20 bg-grass border border-white/10 rounded-xl p-3 shadow-xl grid grid-cols-6 gap-1.5 w-52">
-                  {EMOJIS.map(e => (
-                    <button
-                      key={e}
-                      onClick={() => handleSaveEmoji(e)}
-                      disabled={savingField === 'emoji'}
-                      className={`text-xl w-8 h-8 rounded-lg hover:bg-pitch-900 transition-colors flex items-center justify-center ${team.emoji === e ? 'bg-pitch-900 border border-pitch-600' : ''}`}
-                    >
-                      {e}
-                    </button>
-                  ))}
-                  <button onClick={() => setEditingEmoji(false)} className="col-span-6 text-white/30 hover:text-white text-xs font-display uppercase tracking-wide mt-1 transition-colors">
+                <div className="absolute top-16 left-0 z-20 bg-grass border border-white/10 rounded-xl p-3 shadow-xl w-56">
+                  {/* Upload image option */}
+                  <button
+                    onClick={() => { logoRef.current?.click(); setEditingEmoji(false) }}
+                    disabled={uploadingLogo}
+                    className="w-full flex items-center gap-2 text-xs font-display tracking-wide uppercase text-pitch-400 hover:text-pitch-300 border border-pitch-800 hover:border-pitch-600 rounded-lg px-3 py-2 mb-3 transition-colors"
+                  >
+                    <Camera size={13} />
+                    {uploadingLogo ? 'Subiendo...' : 'Subir imagen (JPG/PNG)'}
+                  </button>
+                  {/* Emoji grid */}
+                  <p className="text-white/20 text-xs font-display uppercase tracking-widest mb-2">O elige un emoji</p>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {EMOJIS.map(e => (
+                      <button
+                        key={e}
+                        onClick={() => handleSaveEmoji(e)}
+                        disabled={savingField === 'emoji'}
+                        className={`text-xl w-8 h-8 rounded-lg hover:bg-pitch-900 transition-colors flex items-center justify-center ${team.emoji === e ? 'bg-pitch-900 border border-pitch-600' : ''}`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setEditingEmoji(false)} className="w-full text-white/20 hover:text-white text-xs font-display uppercase tracking-wide mt-2 transition-colors">
                     Cerrar
                   </button>
                 </div>
               )}
+
+              {/* Hidden logo file input */}
+              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
             </div>
 
             <div className="flex-1 min-w-0">
