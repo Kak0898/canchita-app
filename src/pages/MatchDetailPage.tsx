@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
-import { Match, MatchPlayer, PlayerMatchStatus } from '../types'
+import { Match, MatchPlayer, PlayerMatchStatus, Profile, Team } from '../types'
 import { MapPin, Clock, Users, Star, CheckCircle, XCircle, HelpCircle, UserPlus, UserCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 
-const statusLabels: Record<PlayerMatchStatus, string> = {
-  confirmed: '✓ Confirmado',
-  declined:  '✗ No voy',
-  maybe:     '? Quizás',
-  pending:   '· Pendiente',
+interface TeamWithMembers extends Team {
+  members: (Profile & { role: string })[]
 }
 
 export default function MatchDetailPage() {
@@ -24,6 +21,11 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [inviteUsername, setInviteUsername] = useState('')
   const [inviting, setInviting] = useState(false)
+
+  // Quick invite
+  const [myTeams, setMyTeams] = useState<TeamWithMembers[]>([])
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('all')
+  const [invitingId, setInvitingId] = useState<string | null>(null)
 
   const myPlayer = players.find(p => p.player_id === user?.id)
   const isCreator = match?.created_by === user?.id
@@ -41,7 +43,60 @@ export default function MatchDetailPage() {
     setLoading(false)
   }
 
+  async function loadMyTeams() {
+    if (!user) return
+    // Get all my teams
+    const { data: myMemberships } = await supabase
+      .from('team_members')
+      .select('team_id, role, team:teams(id, name, emoji)')
+      .eq('player_id', user.id)
+    if (!myMemberships || myMemberships.length === 0) return
+
+    const teamIds = myMemberships.map((d: any) => d.team_id)
+
+    // Get all members of those teams (excluding myself)
+    const { data: allMembers } = await supabase
+      .from('team_members')
+      .select('team_id, player_id, role, profile:profiles(id, username, full_name, avatar_url)')
+      .in('team_id', teamIds)
+      .neq('player_id', user.id)
+
+    // Build teams map
+    const teamsMap: Record<string, TeamWithMembers> = {}
+    for (const m of myMemberships as any[]) {
+      teamsMap[m.team_id] = { ...m.team, members: [] }
+    }
+    for (const m of (allMembers ?? []) as any[]) {
+      if (teamsMap[m.team_id]) {
+        const already = teamsMap[m.team_id].members.find((x: any) => x.id === m.profile.id)
+        if (!already) teamsMap[m.team_id].members.push({ ...m.profile, role: m.role })
+      }
+    }
+    setMyTeams(Object.values(teamsMap))
+  }
+
   useEffect(() => { load() }, [id])
+  useEffect(() => { if (isCreator) loadMyTeams() }, [isCreator, id])
+
+  // All unique contacts across teams
+  const allContacts: (Profile & { role: string })[] = []
+  const seen = new Set<string>()
+  for (const team of myTeams) {
+    for (const m of team.members) {
+      if (!seen.has(m.id)) { seen.add(m.id); allContacts.push(m) }
+    }
+  }
+
+  const quickList = selectedTeamId === 'all' ? allContacts : (myTeams.find(t => t.id === selectedTeamId)?.members ?? [])
+  const quickListFiltered = quickList.filter(p => !players.some(mp => mp.player_id === p.id))
+
+  async function handleQuickInvite(playerId: string, name: string) {
+    setInvitingId(playerId)
+    await supabase.from('match_players').insert({ match_id: id, player_id: playerId, status: 'pending' })
+    toast.success(`${name} invitado 🔥`)
+    setInvitingId(null)
+    load()
+  }
 
   async function updateMyStatus(status: PlayerMatchStatus) {
     if (!user || !id) return
@@ -107,7 +162,6 @@ export default function MatchDetailPage() {
 
         {match.notes && <p className="mt-3 text-white/30 text-xs italic border-t border-white/5 pt-3">{match.notes}</p>}
 
-        {/* Finished score */}
         {match.status === 'finished' && match.score_home !== null && (
           <div className="mt-4 text-center">
             <span className="font-display text-4xl font-bold text-pitch-400">{match.score_home} — {match.score_away}</span>
@@ -164,13 +218,77 @@ export default function MatchDetailPage() {
       {/* Invite players */}
       {isCreator && match.status !== 'finished' && match.status !== 'cancelled' && (
         <div className="card mb-5">
-          <p className="label">Invitar jugador</p>
-          <form onSubmit={handleInvite} className="flex gap-2">
-            <input className="input flex-1" value={inviteUsername} onChange={e => setInviteUsername(e.target.value)} placeholder="username" />
-            <button type="submit" disabled={inviting} className="btn-primary flex items-center gap-2 whitespace-nowrap">
-              <UserPlus size={14} /> {inviting ? '...' : 'Invitar'}
-            </button>
-          </form>
+          <p className="label mb-3">Invitar jugadores</p>
+
+          {/* Quick invite from teams */}
+          {myTeams.length > 0 && (
+            <div className="mb-4">
+              {/* Team filter tabs */}
+              <div className="flex gap-1.5 flex-wrap mb-3">
+                <button
+                  onClick={() => setSelectedTeamId('all')}
+                  className={`text-xs font-display tracking-wide uppercase px-3 py-1 rounded border transition-colors ${
+                    selectedTeamId === 'all'
+                      ? 'border-pitch-600 bg-pitch-900 text-pitch-400'
+                      : 'border-white/10 text-white/30 hover:border-white/20'
+                  }`}
+                >
+                  Todos mis equipos
+                </button>
+                {myTeams.map(team => (
+                  <button
+                    key={team.id}
+                    onClick={() => setSelectedTeamId(team.id)}
+                    className={`text-xs font-display tracking-wide uppercase px-3 py-1 rounded border transition-colors ${
+                      selectedTeamId === team.id
+                        ? 'border-pitch-600 bg-pitch-900 text-pitch-400'
+                        : 'border-white/10 text-white/30 hover:border-white/20'
+                    }`}
+                  >
+                    {team.emoji} {team.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Player chips */}
+              {quickListFiltered.length === 0 ? (
+                <p className="text-white/20 text-xs py-2">Todos los jugadores de este equipo ya están invitados</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {quickListFiltered.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => handleQuickInvite(p.id, p.full_name ?? p.username)}
+                      disabled={invitingId === p.id}
+                      className="flex items-center gap-2 bg-white/5 border border-white/10 hover:border-pitch-600 hover:bg-pitch-900/50 rounded-full pl-1 pr-3 py-1 transition-colors group/chip disabled:opacity-40"
+                    >
+                      {p.avatar_url ? (
+                        <img src={p.avatar_url} className="w-6 h-6 rounded-full object-cover" alt="" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-pitch-900 flex items-center justify-center">
+                          <UserCircle size={14} className="text-pitch-700" />
+                        </div>
+                      )}
+                      <span className="text-xs text-white/60 group-hover/chip:text-chalk transition-colors">
+                        {invitingId === p.id ? '...' : (p.full_name ?? p.username)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Manual invite by username */}
+          <div className="border-t border-white/5 pt-3">
+            <p className="text-white/30 text-xs mb-2">O buscar por username</p>
+            <form onSubmit={handleInvite} className="flex gap-2">
+              <input className="input flex-1" value={inviteUsername} onChange={e => setInviteUsername(e.target.value)} placeholder="username del jugador" />
+              <button type="submit" disabled={inviting} className="btn-primary flex items-center gap-2 whitespace-nowrap">
+                <UserPlus size={14} /> {inviting ? '...' : 'Invitar'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
