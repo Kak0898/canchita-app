@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+@layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+    background-color: #111c11;
+    color: #e8f5e9;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Scrollbar pitch-style */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #1a2e1a; }
+  ::-webkit-scrollbar-thumb { background: #15803d; border-radius: 3px; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-pitch-600 hover:bg-pitch-500 text-white font-display tracking-wide uppercase text-sm px-5 py-2.5 rounded transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply border border-pitch-700 hover:border-pitch-500 text-pitch-400 hover:text-pitch-300 font-display tracking-wide uppercase text-sm px-5 py-2.5 rounded transition-colors duration-150;
+  }
+
+  .btn-ghost {
+    @apply text-pitch-400 hover:text-white text-sm transition-colors duration-150;
+  }
+
+  .card {
+    @apply bg-grass border border-white/5 rounded-xl p-5;
+  }
+
+  .input {
+    @apply w-full bg-turf border border-white/10 focus:border-pitch-600 rounded-lg px-4 py-2.5 text-chalk text-sm outline-none transition-colors duration-150 placeholder:text-white/25;
+  }
+
+  .label {
+    @apply block text-xs font-display tracking-widest uppercase text-white/40 mb-1.5;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 text-xs font-mono bg-pitch-900 text-pitch-400 border border-pitch-800 rounded px-2 py-0.5;
+  }
+
+  .stat-number {
+    @apply font-display text-3xl font-bold text-pitch-400;
+  }
+
+  .stat-label {
+    @apply text-xs font-display tracking-widest uppercase text-white/40;
+  }
+
+  .section-title {
+    @apply font-display text-xl font-semibold tracking-wide uppercase text-chalk mb-4;
+  }
+}
