@@ -6,7 +6,8 @@ import { Team, TeamMember, Profile } from '../types'
 import { UserCircle, UserPlus, Crown, Pencil, Check, X, Trash2, Camera, Shield } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const EMOJIS = ['⚽']
+const EMOJIS = ['⚽','🏆','🔥','💪','⚡','🦁','🐯','🦅','🌟','🏅','🎯','🤝']
+
 
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>()
