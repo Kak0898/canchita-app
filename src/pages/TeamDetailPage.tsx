@@ -219,10 +219,10 @@ export default function TeamDetailPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
 
       {/* ── Header card ─────────────────────────────────────── */}
-      <div className="card mb-6 overflow-hidden p-0">
+      <div className="card mb-6 p-0">
 
         {/* Cover image */}
-        <div className="relative h-28 bg-pitch-900 flex items-center justify-center overflow-hidden">
+        <div className="relative h-28 bg-pitch-900 flex items-center justify-center overflow-hidden rounded-t-xl">
           {team.image_url ? (
             <img src={team.image_url} className="w-full h-full object-cover" alt="" />
           ) : (
