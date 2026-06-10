@@ -69,14 +69,21 @@ export default function TeamDetailPage() {
     if (inviteUsername.trim().length < 2) { setSuggestions([]); setShowSuggestions(false); return }
     const timer = setTimeout(async () => {
       setLoadingSuggestions(true)
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, username, full_name, avatar_url')
-        .or(`username.ilike.%${inviteUsername.trim()}%,full_name.ilike.%${inviteUsername.trim()}%`)
-        .neq('id', user!.id)
-        .limit(6)
+      const term = inviteUsername.trim()
+      const [byUsername, byName] = await Promise.all([
+        supabase.from('profiles').select('id, username, full_name, avatar_url')
+          .ilike('username', `%${term}%`).neq('id', user!.id).limit(6),
+        supabase.from('profiles').select('id, username, full_name, avatar_url')
+          .ilike('full_name', `%${term}%`).neq('id', user!.id).limit(6),
+      ])
+      // Merge and deduplicate
+      const merged: Profile[] = []
+      const seen = new Set<string>()
+      for (const p of [...(byUsername.data ?? []), ...(byName.data ?? [])]) {
+        if (!seen.has(p.id)) { seen.add(p.id); merged.push(p as Profile) }
+      }
       const alreadyIn = new Set(members.map(m => m.player_id))
-      const filtered = (data ?? []).filter((p: Profile) => !alreadyIn.has(p.id))
+      const filtered = merged.filter(p => !alreadyIn.has(p.id)).slice(0, 6)
       setSuggestions(filtered)
       setShowSuggestions(filtered.length > 0)
       setLoadingSuggestions(false)

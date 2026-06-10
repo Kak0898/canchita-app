@@ -6,9 +6,11 @@ import { Team } from '../types'
 import { Plus, Users, ChevronRight } from 'lucide-react'
 import CreateTeamModal from '../components/teams/CreateTeamModal'
 
+type TeamWithExtra = Team & { role: string; image_url?: string }
+
 export default function TeamsPage() {
   const { user } = useAuth()
-  const [teams, setTeams] = useState<(Team & { role: string })[]>([])
+  const [teams, setTeams] = useState<TeamWithExtra[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
 
@@ -51,7 +53,12 @@ export default function TeamsPage() {
         <div className="space-y-3">
           {teams.map(team => (
             <Link key={team.id} to={`/teams/${team.id}`} className="card flex items-center gap-4 hover:border-pitch-700 transition-colors group">
-              <span className="text-3xl">{team.emoji}</span>
+              {/* Logo o emoji */}
+              {team.image_url ? (
+                <img src={team.image_url} className="w-10 h-10 rounded-lg object-cover border border-pitch-800 shrink-0" alt="" />
+              ) : (
+                <span className="text-3xl shrink-0">{team.emoji}</span>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="font-display font-semibold text-chalk group-hover:text-pitch-400 transition-colors">{team.name}</p>
                 {team.description && <p className="text-white/40 text-xs mt-0.5 truncate">{team.description}</p>}
