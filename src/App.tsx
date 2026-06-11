@@ -14,6 +14,7 @@ import MatchesPage from './pages/MatchesPage'
 import MatchDetailPage from './pages/MatchDetailPage'
 import CreateMatchPage from './pages/CreateMatchPage'
 import RatingsPage from './pages/RatingsPage'
+import AdminPage from './pages/admin/AdminPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/matches/new"    element={<CreateMatchPage />} />
         <Route path="/matches/:id"    element={<MatchDetailPage />} />
         <Route path="/matches/:id/rate" element={<RatingsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { LayoutDashboard, Users, Calendar, Trophy, UserCircle, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, Calendar, Trophy, UserCircle, LogOut, Menu, X, Shield } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 
-const navItems = [
+// navItems are computed dynamically below based on admin role
+const baseNavItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio' },
   { to: '/matches',   icon: Calendar,         label: 'Partidos' },
   { to: '/teams',     icon: Users,            label: 'Equipos' },
@@ -13,6 +14,8 @@ const navItems = [
 
 export default function Layout() {
   const { profile, signOut } = useAuth()
+  const isAdmin = (profile as any)?.role === 'admin'
+  const navItems = isAdmin ? [...baseNavItems, { to: '/admin', icon: Shield, label: 'Admin' }] : baseNavItems
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
 
